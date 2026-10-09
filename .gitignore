@@ -1,0 +1,28 @@
+
+# Maven build output
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Visual Studio Code
+.vscode/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local Spring configuration and secrets
+application-local.properties
+*.local.properties
+secrets.properties
+*secret*.properties
+
+# Private key and certificate files
+*.jks
+*.p12
+*.pem
