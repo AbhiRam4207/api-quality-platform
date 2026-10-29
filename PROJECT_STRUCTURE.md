@@ -37,8 +37,7 @@ src/main/java/api_quality_platform/
 │   ├── ApiTestResponse.java                # Test read response
 │   ├── ContractComparisonHistoryResponse.java  # Contract diff history response
 │   ├── ContractComparisonResult.java       # Contract diff result (added/removed/type-changed)
-│   ├── RegressionResponse.java             # Regression check result
-│   └── ValidationResponse.java             # Validation outcome payload (success/failure)
+│   └── RegressionResponse.java             # Regression check result
 │
 ├── entity/
 │   ├── Api.java                            # API definition (apis table)
@@ -66,8 +65,8 @@ src/main/java/api_quality_platform/
     ├── RegressionService.java              # Regression detection between executions
     ├── TestExecutionService.java           # Persistence & lookup for test executions
     ├── ValidationResult.java               # Validation result wrapper
-    ├── AiTestSuggestionService.java        # AI test suggestion generation via OpenRouter (cohere/north-mini-code:free)
-    ├── AiFailureAnalysisService.java       # AI failure analysis via OpenRouter (cohere/north-mini-code:free)
+    ├── AiTestSuggestionService.java        # AI test suggestion generation via NVIDIA (deepseek-ai/deepseek-v4.1-flash)
+    ├── AiFailureAnalysisService.java       # AI failure analysis via NVIDIA (deepseek-ai/deepseek-v4.1-flash)
     └── ChangelogService.java               # Action auditing service logging to changelog.txt
 ```
 
@@ -218,7 +217,7 @@ ContractComparisonController.compare
 ## Key Design Decisions
 
 - **Immutable DTOs:** `ApiTestResponse`, `ApiTestResult`, `ApiExecutionResult`, `ContractComparisonResult`, `RegressionResponse`, and `ValidationResult` are immutable value objects with `final` fields and no setters.
-- **Validation:** `ApiResponseValidationService` validates expected status code, presence of required fields (dotted paths), and JSON field types (via a JSON type map with `ARRAY`/`OBJECT`/`STRING`/`NUMBER`/`BOOLEAN`/`NULL`). `ValidationResponse` offers static `success()` / `failure()` factories.
+- **Validation:** `ApiResponseValidationService` validates expected status code, presence of required fields (dotted paths), and JSON field types (via a JSON type map with `ARRAY`/`OBJECT`/`STRING`/`NUMBER`/`BOOLEAN`/`NULL`). `ValidationResult` offers static `success()` / `failure()` factories.
 - **Exception handling:** Domain-specific `NotFoundException` is used consistently across services to return HTTP 404 with descriptive messages.
 - **Null-safety:** `ApiExecutionService.execute` guards against null/blank credentials and null/blank methods before calling `setBasicAuth`; defaults to GET.
 - **Method-aware execution:** `ApiExecutionService.execute` reads the HTTP method from `Api.method` (GET/POST/PUT/PATCH/DELETE) and routes through the corresponding `RestClient` verb. `executeGet` remains as a backward-compatible GET-only shortcut.

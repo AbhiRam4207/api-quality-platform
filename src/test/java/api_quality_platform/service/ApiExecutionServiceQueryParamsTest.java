@@ -1,6 +1,8 @@
 package api_quality_platform.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -14,16 +16,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ApiExecutionServiceQueryParamsTest {
 
-    @Test
-    void shouldApplySingleQueryParamForGet() {
+    @ParameterizedTest(name = "should apply query params for {0}")
+    @CsvSource({
+        "GET, filter, active, http://example.com?filter=active",
+        "POST, include, details, http://example.com?include=details",
+        "PUT, version, 2, http://example.com?version=2",
+        "PATCH, field, name, http://example.com?field=name",
+        "DELETE, force, true, http://example.com?force=true"
+    })
+    void shouldApplyQueryParamsForAllMethods(String httpMethod, String paramName, String paramValue, String expectedUrl) {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com?filter=active"))
-                .andExpect(method(HttpMethod.GET))
-                .andExpect(queryParam("filter", "active"))
+                .expect(requestTo(expectedUrl))
+                .andExpect(method(HttpMethod.valueOf(httpMethod)))
+                .andExpect(queryParam(paramName, paramValue))
                 .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
         ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "GET", null, null, null, null, "{\"filter\":\"active\"}");
+        ApiExecutionResult result = service.execute("http://example.com", httpMethod, null, null, null, null, "{\"" + paramName + "\":\"" + paramValue + "\"}");
         assertEquals(200, result.getStatusCode());
     }
 
@@ -38,58 +47,6 @@ class ApiExecutionServiceQueryParamsTest {
                 .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
         ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
         ApiExecutionResult result = service.execute("http://example.com", "GET", null, null, null, null, "{\"page\":\"1\",\"limit\":\"10\"}");
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyQueryParamsForPost() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com?include=details"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(queryParam("include", "details"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "POST", null, null, null, null, "{\"include\":\"details\"}");
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyQueryParamsForPut() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com?version=2"))
-                .andExpect(method(HttpMethod.PUT))
-                .andExpect(queryParam("version", "2"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PUT", null, null, null, null, "{\"version\":\"2\"}");
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyQueryParamsForPatch() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com?field=name"))
-                .andExpect(method(HttpMethod.PATCH))
-                .andExpect(queryParam("field", "name"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PATCH", null, null, null, null, "{\"field\":\"name\"}");
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyQueryParamsForDelete() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com?force=true"))
-                .andExpect(method(HttpMethod.DELETE))
-                .andExpect(queryParam("force", "true"))
-                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "DELETE", null, null, null, null, "{\"force\":\"true\"}");
         assertEquals(200, result.getStatusCode());
     }
 

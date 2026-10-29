@@ -2,6 +2,8 @@ package api_quality_platform.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -23,43 +25,13 @@ class ApiExecutionServiceMethodTest {
         return builder.build();
     }
 
-    @Test
-    void shouldUseGetMethod() throws Exception {
-        RestClient restClient = createMockedRestClient("http://example.com", HttpMethod.GET);
+    @ParameterizedTest(name = "should use {0} method")
+    @ValueSource(strings = {"GET", "POST", "PUT", "PATCH", "DELETE"})
+    void shouldUseSupportedHttpMethods(String httpMethod) throws Exception {
+        HttpMethod method = HttpMethod.valueOf(httpMethod);
+        RestClient restClient = createMockedRestClient("http://example.com", method);
         ApiExecutionService service = new ApiExecutionService(restClient, new ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "GET", null, null);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldUsePostMethod() throws Exception {
-        RestClient restClient = createMockedRestClient("http://example.com", HttpMethod.POST);
-        ApiExecutionService service = new ApiExecutionService(restClient, new ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "POST", null, null);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldUsePutMethod() throws Exception {
-        RestClient restClient = createMockedRestClient("http://example.com", HttpMethod.PUT);
-        ApiExecutionService service = new ApiExecutionService(restClient, new ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PUT", null, null);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldUsePatchMethod() throws Exception {
-        RestClient restClient = createMockedRestClient("http://example.com", HttpMethod.PATCH);
-        ApiExecutionService service = new ApiExecutionService(restClient, new ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PATCH", null, null);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldUseDeleteMethod() throws Exception {
-        RestClient restClient = createMockedRestClient("http://example.com", HttpMethod.DELETE);
-        ApiExecutionService service = new ApiExecutionService(restClient, new ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "DELETE", null, null);
+        ApiExecutionResult result = service.execute("http://example.com", httpMethod, null, null);
         assertEquals(200, result.getStatusCode());
     }
 

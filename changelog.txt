@@ -36,3 +36,7 @@
 [2026-10-25 23:17:13] GEMINI_SUGGESTION_START | apiId=1 model=gemini-3.5-flash-lite
 [2026-10-25 23:17:17] GEMINI_SUGGESTION_SUCCESS | apiId=1 elapsed=4101ms
 [2026-10-25 23:17:18] GEMINI_SUGGESTION_FAILED | apiId=1
+[2026-10-29 23:33:19] GEMINI_SUGGESTION_START | apiId=1 model=gemini-3.5-flash-lite
+[2026-10-29 23:33:38] GEMINI_SUGGESTION_SUCCESS | apiId=1 elapsed=19455ms
+[2026-10-29 23:33:38] GEMINI_SUGGESTION_FAILED | apiId=1
+- [2026-10-30 00:15:00] CLEANUP (NVIDIA-only AI consolidation): Consolidated AI provider integrations to NVIDIA as the sole active provider. Removed Gemini, OpenRouter, OmniRoute, and Ollama provider implementations and configurations. Simplified AiTestSuggestionService and AiFailureAnalysisService to NVIDIA-only. Removed dead code: OllamaAiTestSuggestionService, OllamaAiFailureAnalysisService, OllamaConnectionTest, unused ValidationResponse DTO, unused ContractComparisonService single-arg constructor and compareAndReturn method. Hardcoded NVIDIA API key retained in application.properties for local development only. Verified: 150 tests pass, application starts on port 8080, PostgreSQL 18 connectivity confirmed, no secrets in logs.

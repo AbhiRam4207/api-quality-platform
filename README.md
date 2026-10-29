@@ -6,7 +6,7 @@ The AI API Quality & Reliability Platform is a Java-based backend project design
 
 Instead of manually checking every API response, developers can register an API, define expected behavior, execute reusable tests, validate responses, compare contracts, and identify potential regressions.
 
-> **Project status:** Actively under development. Core API testing, contract comparison, execution history, regression analysis, and OpenRouter AI integration (`cohere/north-mini-code:free` for test suggestions and failure analysis) are implemented and verified with 136 automated tests passing.
+> **Project status:** Actively under development. Core API testing, contract comparison, execution history, regression analysis, and NVIDIA AI integration (`deepseek-ai/deepseek-v4.1-flash` for test suggestions and failure analysis) are implemented and verified with 150 automated tests passing.
 
 ---
 

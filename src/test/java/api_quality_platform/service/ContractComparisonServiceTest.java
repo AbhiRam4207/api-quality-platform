@@ -9,7 +9,8 @@ class ContractComparisonServiceTest {
 
     private final ContractComparisonService service =
             new ContractComparisonService(
-                    new com.fasterxml.jackson.databind.ObjectMapper()
+                    new com.fasterxml.jackson.databind.ObjectMapper(),
+                    null
             );
 
     @Test

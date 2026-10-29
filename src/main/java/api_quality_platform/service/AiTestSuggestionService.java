@@ -31,9 +31,6 @@ public class AiTestSuggestionService {
 
     private static final Logger log = LoggerFactory.getLogger(AiTestSuggestionService.class);
 
-    private static final String DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-    private static final String DEFAULT_OMNIROUTE_BASE_URL = "http://localhost:20128/v1";
-    private static final String DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 
     private final ApiRepository apiRepository;
@@ -43,7 +40,6 @@ public class AiTestSuggestionService {
     private final String baseUrl;
     private final String apiKey;
     private final String model;
-    private final String providerName;
 
     @Autowired
     public AiTestSuggestionService(
@@ -51,82 +47,17 @@ public class AiTestSuggestionService {
             RestClient.Builder restClientBuilder,
             ObjectMapper objectMapper,
             ChangelogService changelogService,
-            @Value("${ai.provider:gemini}") String provider,
-            @Value("${gemini.base-url:https://generativelanguage.googleapis.com/v1beta/models}") String geminiBaseUrl,
-            @Value("${GEMINI_API_KEY:${gemini.api-key:}}") String geminiApiKey,
-            @Value("${gemini.model:gemini-3.5-flash-lite}") String geminiModel,
-            @Value("${omniroute.base-url:http://localhost:20128/v1}") String omnirouteBaseUrl,
-            @Value("${OMNIROUTE_API_KEY:${omniroute.api-key:}}") String omnirouteApiKey,
-            @Value("${omniroute.model:auto/best-coding}") String omnirouteModel) {
+            @Value("${nvidia.base-url:https://integrate.api.nvidia.com/v1}") String baseUrl,
+            @Value("${nvidia.api-key:}") String apiKey,
+            @Value("${nvidia.model:deepseek-ai/deepseek-v4.1-flash}") String model) {
 
         this.apiRepository = apiRepository;
         this.restClientBuilder = restClientBuilder;
         this.objectMapper = objectMapper;
         this.changelogService = changelogService;
-
-        if ("gemini".equalsIgnoreCase(provider)) {
-            this.providerName = "gemini";
-            this.baseUrl = normalizeBaseUrl(geminiBaseUrl, DEFAULT_GEMINI_BASE_URL);
-            this.apiKey = geminiApiKey;
-            this.model = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel : "gemini-3.5-flash-lite";
-        } else if ("omniroute".equalsIgnoreCase(provider)) {
-            this.providerName = "omniroute";
-            this.baseUrl = normalizeBaseUrl(omnirouteBaseUrl, DEFAULT_OMNIROUTE_BASE_URL);
-            this.apiKey = omnirouteApiKey;
-            this.model = (omnirouteModel != null && !omnirouteModel.isBlank()) ? omnirouteModel : "auto/best-coding";
-        } else {
-            if (geminiApiKey != null && !geminiApiKey.isBlank()) {
-                this.providerName = "gemini";
-                this.baseUrl = normalizeBaseUrl(geminiBaseUrl, DEFAULT_GEMINI_BASE_URL);
-                this.apiKey = geminiApiKey;
-                this.model = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel : "gemini-3.5-flash-lite";
-            } else {
-                this.providerName = "omniroute";
-                this.baseUrl = normalizeBaseUrl(omnirouteBaseUrl, DEFAULT_OMNIROUTE_BASE_URL);
-                this.apiKey = omnirouteApiKey;
-                this.model = (omnirouteModel != null && !omnirouteModel.isBlank()) ? omnirouteModel : "auto/best-coding";
-            }
-        }
-    }
-
-    public AiTestSuggestionService(
-            ApiRepository apiRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String baseUrl,
-            String apiKey,
-            String model) {
-        this(apiRepository, restClientBuilder, objectMapper, changelogService, baseUrl, apiKey, model, "omniroute");
-    }
-
-    public AiTestSuggestionService(
-            ApiRepository apiRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String baseUrl,
-            String apiKey,
-            String model,
-            String providerName) {
-        this.apiRepository = apiRepository;
-        this.restClientBuilder = restClientBuilder;
-        this.objectMapper = objectMapper;
-        this.changelogService = changelogService;
-        this.baseUrl = normalizeBaseUrl(baseUrl, DEFAULT_OMNIROUTE_BASE_URL);
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey;
         this.model = model;
-        this.providerName = providerName != null ? providerName : "omniroute";
-    }
-
-    public AiTestSuggestionService(
-            ApiRepository apiRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String apiKey,
-            String model) {
-        this(apiRepository, restClientBuilder, objectMapper, changelogService, DEFAULT_OPENROUTER_BASE_URL, apiKey, model, "openrouter");
     }
 
     public String getBaseUrl() {
@@ -137,13 +68,9 @@ public class AiTestSuggestionService {
         return model;
     }
 
-    public String getProviderName() {
-        return providerName;
-    }
-
-    private static String normalizeBaseUrl(String url, String defaultUrl) {
+    private static String normalizeBaseUrl(String url) {
         if (url == null || url.isBlank()) {
-            return defaultUrl;
+            return "https://integrate.api.nvidia.com/v1";
         }
         String trimmed = url.trim();
         while (trimmed.endsWith("/")) {
@@ -157,101 +84,77 @@ public class AiTestSuggestionService {
                 .orElseThrow(() -> new NotFoundException("Api not found with id: " + apiId));
 
         if (apiKey == null || apiKey.isBlank()) {
-            String keyName = "gemini".equalsIgnoreCase(providerName) ? "GEMINI_API_KEY" : "OMNIROUTE_API_KEY";
-            throw new AiConfigurationException(keyName + " is not configured.");
+            throw new AiConfigurationException("NVIDIA_API_KEY is not configured.");
         }
 
         String prompt = buildPrompt(api, request);
 
-        Map<String, Object> body;
-        String endpointPath;
-        if ("gemini".equalsIgnoreCase(providerName)) {
-            body = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)
-                            ))
-                    )
-            );
-            endpointPath = "/" + model + ":generateContent";
-        } else {
-            body = Map.of(
-                    "model", model,
-                    "messages", List.of(
-                            Map.of("role", "user", "content", prompt)
-                    )
-            );
-            endpointPath = CHAT_COMPLETIONS_PATH;
-        }
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "user", "content", prompt)
+                )
+        );
 
-        String providerLabel = "gemini".equalsIgnoreCase(providerName) ? "Gemini" : "OmniRoute";
-        String logPrefix = providerLabel.toUpperCase();
+        String logPrefix = "NVIDIA";
         long startTime = System.currentTimeMillis();
-        log.info("Starting {} AI test suggestion for apiId: {} using model: {}", providerLabel, apiId, model);
-        changelogService.log(logPrefix + "_SUGGESTION_START", "apiId=" + apiId + " model=" + model);
+        log.info("Starting NVIDIA AI test suggestion for apiId: {} using model: {}", apiId, model);
+        changelogService.log("NVIDIA_SUGGESTION_START", "apiId=" + apiId + " model=" + model);
 
         try {
             RestClient client = restClientBuilder.baseUrl(baseUrl).build();
 
-            var requestSpec = client.post()
-                    .uri(endpointPath)
-                    .contentType(MediaType.APPLICATION_JSON);
-
-            if ("gemini".equalsIgnoreCase(providerName)) {
-                requestSpec.header("x-goog-api-key", apiKey);
-            } else {
-                requestSpec.header("Authorization", "Bearer " + apiKey);
-            }
-
-            String jsonResponse = requestSpec
+            String jsonResponse = client.post()
+                    .uri(CHAT_COMPLETIONS_PATH)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + apiKey)
                     .body(body)
                     .retrieve()
                     .body(String.class);
 
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("{} AI test suggestion completed in {}ms for apiId: {}", providerLabel, elapsed, apiId);
-            changelogService.log(logPrefix + "_SUGGESTION_SUCCESS", "apiId=" + apiId + " elapsed=" + elapsed + "ms");
+            log.info("NVIDIA AI test suggestion completed in {}ms for apiId: {}", elapsed, apiId);
+            changelogService.log("NVIDIA_SUGGESTION_SUCCESS", "apiId=" + apiId + " elapsed=" + elapsed + "ms");
 
             return parseResponse(jsonResponse, api);
         } catch (HttpClientErrorException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             HttpStatus status = (HttpStatus) e.getStatusCode();
             String responseBody = e.getResponseBodyAsString();
-            String keyName = "gemini".equalsIgnoreCase(providerName) ? "GEMINI_API_KEY" : "OMNIROUTE_API_KEY";
             if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
-                log.error("{} authentication error after {}ms: status={}, response={}", providerLabel, elapsed, status.value(), responseBody);
-                changelogService.log(logPrefix + "_SUGGESTION_AUTH_ERROR", "apiId=" + apiId + " status=" + status.value());
-                throw new AiConfigurationException(providerLabel + " authentication failed. Check " + keyName + ".");
+                log.error("NVIDIA authentication error after {}ms: status={}", logPrefix, elapsed, status.value());
+                changelogService.log("NVIDIA_SUGGESTION_AUTH_ERROR", "apiId=" + apiId + " status=" + status.value());
+                throw new AiConfigurationException("NVIDIA authentication failed. Check NVIDIA_API_KEY.");
             }
             if (status == HttpStatus.TOO_MANY_REQUESTS) {
-                log.error("{} rate limit exceeded after {}ms: response={}", providerLabel, elapsed, responseBody);
-                changelogService.log(logPrefix + "_SUGGESTION_RATE_LIMIT", "apiId=" + apiId);
-                throw new AiProviderException(providerLabel + " rate limit exceeded. Retry later.", e);
+                log.error("NVIDIA rate limit exceeded after {}ms: response={}", logPrefix, elapsed, responseBody);
+                changelogService.log("NVIDIA_SUGGESTION_RATE_LIMIT", "apiId=" + apiId);
+                throw new AiProviderException("NVIDIA rate limit exceeded. Retry later.", e);
             }
-            log.error("{} client error after {}ms: status={}, response={}", providerLabel, elapsed, status.value(), responseBody);
-            changelogService.log(logPrefix + "_SUGGESTION_CLIENT_ERROR", "apiId=" + apiId + " status=" + status.value());
-            throw new AiProviderException(providerLabel + " returned client error " + status.value() + ": " + responseBody, e);
+            log.error("NVIDIA client error after {}ms: status={}, response={}", logPrefix, elapsed, status.value(), responseBody);
+            changelogService.log("NVIDIA_SUGGESTION_CLIENT_ERROR", "apiId=" + apiId + " status=" + status.value());
+            throw new AiProviderException("NVIDIA returned client error " + status.value() + ": " + responseBody, e);
         } catch (HttpServerErrorException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             String responseBody = e.getResponseBodyAsString();
-            log.error("{} server error after {}ms: status={}, response={}", providerLabel, elapsed, e.getStatusCode().value(), responseBody);
-            changelogService.log(logPrefix + "_SUGGESTION_SERVER_ERROR", "apiId=" + apiId + " status=" + e.getStatusCode().value());
-            throw new AiProviderException(providerLabel + " server error " + e.getStatusCode().value() + ": " + responseBody, e);
+            log.error("NVIDIA server error after {}ms: status={}, response={}", logPrefix, elapsed, e.getStatusCode().value(), responseBody);
+            changelogService.log("NVIDIA_SUGGESTION_SERVER_ERROR", "apiId=" + apiId + " status=" + e.getStatusCode().value());
+            throw new AiProviderException("NVIDIA server error " + e.getStatusCode().value() + ": " + responseBody, e);
         } catch (ResourceAccessException e) {
             long elapsed = System.currentTimeMillis() - startTime;
-            log.error("{} network or timeout error after {}ms: {}", providerLabel, elapsed, e.getMessage());
-            changelogService.log(logPrefix + "_SUGGESTION_NETWORK_ERROR", "apiId=" + apiId);
-            throw new AiProviderException(providerLabel + " request failed due to network error or timeout after " + elapsed + "ms", e);
+            log.error("NVIDIA network or timeout error after {}ms: {}", logPrefix, elapsed, e.getMessage());
+            changelogService.log("NVIDIA_SUGGESTION_NETWORK_ERROR", "apiId=" + apiId);
+            throw new AiProviderException("NVIDIA request failed due to network error or timeout after " + elapsed + "ms", e);
         } catch (NotFoundException | AiConfigurationException | AiProviderException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             log.error("AI suggestion failed after {}ms: {}", elapsed, e.getMessage());
-            changelogService.log(logPrefix + "_SUGGESTION_FAILED", "apiId=" + apiId);
+            changelogService.log("NVIDIA_SUGGESTION_FAILED", "apiId=" + apiId);
             throw e;
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - startTime;
             log.error("Unexpected error during AI suggestion after {}ms: class={}, message={}", elapsed, e.getClass().getName(), e.getMessage(), e);
-            changelogService.log(logPrefix + "_SUGGESTION_ERROR", "apiId=" + apiId);
-            throw new AiProviderException("Unexpected error from " + providerLabel + " after " + elapsed + "ms: " + e.getMessage(), e);
+            changelogService.log("NVIDIA_SUGGESTION_ERROR", "apiId=" + apiId);
+            throw new AiProviderException("Unexpected error from NVIDIA after " + elapsed + "ms: " + e.getMessage(), e);
         }
     }
 
@@ -313,18 +216,12 @@ public class AiTestSuggestionService {
     }
 
     private ApiTestSuggestionResponse parseResponse(String jsonResponse, Api api) {
-        String providerLabel = "gemini".equalsIgnoreCase(providerName) ? "Gemini" : ("openrouter".equalsIgnoreCase(providerName) ? "OpenRouter" : "OmniRoute");
         try {
             JsonNode root = objectMapper.readTree(jsonResponse);
-            JsonNode contentNode;
-            if ("gemini".equalsIgnoreCase(providerName)) {
-                contentNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-            } else {
-                contentNode = root.path("choices").path(0).path("message").path("content");
-            }
+            JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
             if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-                log.error("{} response missing content node for apiId: {}", providerLabel, api.getId());
-                throw new AiProviderException(providerLabel + " returned an empty or malformed response", new IllegalStateException("Missing content node"));
+                log.error("NVIDIA response missing content node for apiId: {}", api.getId());
+                throw new AiProviderException("NVIDIA returned an empty or malformed response", new IllegalStateException("Missing content node"));
             }
             String content = contentNode.asText().trim();
             if (content.startsWith("```")) {
@@ -336,8 +233,8 @@ public class AiTestSuggestionService {
         } catch (AiProviderException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to parse {} response for apiId {}: {}", providerLabel, api.getId(), e.getMessage());
-            throw new AiProviderException("Failed to parse " + providerLabel + " response", e);
+            log.error("Failed to parse NVIDIA response for apiId {}: {}", api.getId(), e.getMessage());
+            throw new AiProviderException("Failed to parse NVIDIA response", e);
         }
     }
 

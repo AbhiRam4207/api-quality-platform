@@ -1,6 +1,8 @@
 package api_quality_platform.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -17,73 +19,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ApiExecutionServiceHeadersTest {
 
-    @Test
-    void shouldApplyCustomHeadersForGet() {
+    @ParameterizedTest(name = "should apply custom headers for {0}")
+    @ValueSource(strings = {"GET", "POST", "PUT", "PATCH", "DELETE"})
+    void shouldApplyCustomHeadersForAllMethods(String httpMethod) {
         String headersJson = "{\"X-Custom-Header\":\"custom-value\"}";
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer.bindTo(builder).build()
                 .expect(requestTo("http://example.com"))
-                .andExpect(method(HttpMethod.GET))
+                .andExpect(method(HttpMethod.valueOf(httpMethod)))
                 .andExpect(header("X-Custom-Header", "custom-value"))
                 .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
         ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "GET", null, null, null, headersJson);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyCustomHeadersForPost() {
-        String headersJson = "{\"X-Custom-Header\":\"custom-value\"}";
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Custom-Header", "custom-value"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "POST", null, null, null, headersJson);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyCustomHeadersForPut() {
-        String headersJson = "{\"X-Custom-Header\":\"custom-value\"}";
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com"))
-                .andExpect(method(HttpMethod.PUT))
-                .andExpect(header("X-Custom-Header", "custom-value"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PUT", null, null, null, headersJson);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyCustomHeadersForPatch() {
-        String headersJson = "{\"X-Custom-Header\":\"custom-value\"}";
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com"))
-                .andExpect(method(HttpMethod.PATCH))
-                .andExpect(header("X-Custom-Header", "custom-value"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "PATCH", null, null, null, headersJson);
-        assertEquals(200, result.getStatusCode());
-    }
-
-    @Test
-    void shouldApplyCustomHeadersForDelete() {
-        String headersJson = "{\"X-Custom-Header\":\"custom-value\"}";
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer.bindTo(builder).build()
-                .expect(requestTo("http://example.com"))
-                .andExpect(method(HttpMethod.DELETE))
-                .andExpect(header("X-Custom-Header", "custom-value"))
-                .andRespond(withSuccess("{\"id\":1}", MediaType.APPLICATION_JSON));
-        ApiExecutionService service = new ApiExecutionService(builder.build(), new com.fasterxml.jackson.databind.ObjectMapper());
-        ApiExecutionResult result = service.execute("http://example.com", "DELETE", null, null, null, headersJson);
+        ApiExecutionResult result = service.execute("http://example.com", httpMethod, null, null, null, headersJson);
         assertEquals(200, result.getStatusCode());
     }
 

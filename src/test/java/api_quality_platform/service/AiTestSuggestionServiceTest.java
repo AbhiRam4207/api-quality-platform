@@ -28,9 +28,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class AiTestSuggestionServiceTest {
 
-    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-    private static final String TEST_KEY = "test-openrouter-key";
-    private static final String MODEL = "cohere/north-mini-code:free";
+    private static final String NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+    private static final String TEST_KEY = "test-nvidia-key";
+    private static final String MODEL = "deepseek-ai/deepseek-v4.1-flash";
 
     private ApiRepository apiRepository;
     private ObjectMapper objectMapper;
@@ -44,7 +44,7 @@ class AiTestSuggestionServiceTest {
     }
 
     private AiTestSuggestionService service(RestClient.Builder builder, String key) {
-        return new AiTestSuggestionService(apiRepository, builder, objectMapper, changelogService, key, MODEL);
+        return new AiTestSuggestionService(apiRepository, builder, objectMapper, changelogService, "https://integrate.api.nvidia.com/v1", key, MODEL);
     }
 
     @Test
@@ -74,11 +74,11 @@ class AiTestSuggestionServiceTest {
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
         ApiTestSuggestionResponse expected = buildExpectedSuggestionResponse();
-        String responseJson = buildOpenRouterResponse(objectMapper.writeValueAsString(expected));
+        String responseJson = buildNvidiaResponse(objectMapper.writeValueAsString(expected));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer " + TEST_KEY))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -99,16 +99,16 @@ class AiTestSuggestionServiceTest {
     }
 
     @Test
-    void shouldParseOpenRouterChoicesStructure() throws Exception {
+    void shouldParseNvidiaChoicesStructure() throws Exception {
         Api api = buildApi();
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
         ApiTestSuggestionResponse expected = buildExpectedSuggestionResponse();
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(expected));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(expected));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         ApiTestSuggestionResponse result = service(builder, TEST_KEY).generateAiSuggestions(1L, null);
@@ -122,11 +122,11 @@ class AiTestSuggestionServiceTest {
         Api api = buildApi();
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
-        String malformed = buildOpenRouterResponse("not-valid-json");
+        String malformed = buildNvidiaResponse("not-valid-json");
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(malformed, MediaType.APPLICATION_JSON));
 
         assertThrows(AiProviderException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -142,7 +142,7 @@ class AiTestSuggestionServiceTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(emptyChoices, MediaType.APPLICATION_JSON));
 
         assertThrows(AiProviderException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -156,7 +156,7 @@ class AiTestSuggestionServiceTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
         assertThrows(AiConfigurationException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -170,7 +170,7 @@ class AiTestSuggestionServiceTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withStatus(HttpStatus.FORBIDDEN));
 
         assertThrows(AiConfigurationException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -184,7 +184,7 @@ class AiTestSuggestionServiceTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
 
         assertThrows(AiProviderException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -198,7 +198,7 @@ class AiTestSuggestionServiceTest {
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withServerError());
 
         assertThrows(AiProviderException.class, () -> service(builder, TEST_KEY).generateAiSuggestions(1L, null));
@@ -213,11 +213,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse expected = buildExpectedSuggestionResponse();
         String innerJson = objectMapper.writeValueAsString(expected);
         String fencedContent = "```json\n" + innerJson + "\n```";
-        String responseBody = buildOpenRouterResponse(fencedContent);
+        String responseBody = buildNvidiaResponse(fencedContent);
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         ApiTestSuggestionResponse result = service(builder, TEST_KEY).generateAiSuggestions(1L, null);
@@ -236,11 +236,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("CSV Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -259,11 +259,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Field Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -282,11 +282,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Invalid credentials test", "tests credentials with null authType", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -305,11 +305,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Query Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -327,11 +327,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("NotFound Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -350,11 +350,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Null Body Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -373,11 +373,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Whitespace Null Body Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -396,11 +396,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("Empty Body Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -421,11 +421,11 @@ class AiTestSuggestionServiceTest {
         ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
                 new ApiTestSuggestionResponse.SuggestionItem("POST Body Test", "desc", req)
         ));
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(resp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -440,11 +440,11 @@ class AiTestSuggestionServiceTest {
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
         ApiTestSuggestionResponse invalidResp = new ApiTestSuggestionResponse(null, "Test", List.of());
-        String responseBody = buildOpenRouterResponse(objectMapper.writeValueAsString(invalidResp));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(invalidResp));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(OPENROUTER_URL))
+        server.expect(requestTo(NVIDIA_URL))
                 .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = service(builder, TEST_KEY);
@@ -453,77 +453,45 @@ class AiTestSuggestionServiceTest {
     }
 
     @Test
-    void shouldSupportOmnirouteConfigurationAndEndpoint() throws Exception {
+    void shouldUseConfiguredBaseUrlAndModel() throws Exception {
         Api api = buildApi();
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
         ApiTestSuggestionResponse expected = buildExpectedSuggestionResponse();
-        String responseJson = buildOpenRouterResponse(objectMapper.writeValueAsString(expected));
+        String responseJson = buildNvidiaResponse(objectMapper.writeValueAsString(expected));
 
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo("http://localhost:20128/v1/chat/completions"))
+        server.expect(requestTo(NVIDIA_URL))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("Authorization", "Bearer test-omniroute-key"))
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(header("Authorization", "Bearer " + TEST_KEY))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         AiTestSuggestionService svc = new AiTestSuggestionService(
                 apiRepository, builder, objectMapper, changelogService,
-                "http://localhost:20128/v1", "test-omniroute-key", "auto/best-coding", "omniroute"
+                "https://integrate.api.nvidia.com/v1", TEST_KEY, MODEL
         );
 
         ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, new AiSuggestionRequest());
 
         assertNotNull(result);
         assertEquals(1L, result.getApiId());
-        assertEquals("omniroute", svc.getProviderName());
-        assertEquals("http://localhost:20128/v1", svc.getBaseUrl());
-        assertEquals("auto/best-coding", svc.getModel());
+        assertEquals("https://integrate.api.nvidia.com/v1", svc.getBaseUrl());
+        assertEquals(MODEL, svc.getModel());
         server.verify();
     }
 
     @Test
-    void shouldSupportGeminiConfigurationAndEndpoint() throws Exception {
+    void shouldThrowAiConfigurationExceptionWhenNvidiaKeyMissing() {
         Api api = buildApi();
         when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
 
-        Map<String, Object> geminiResp = Map.of(
-                "candidates", List.of(
-                        Map.of("content", Map.of("parts", List.of(
-                                Map.of("text", objectMapper.writeValueAsString(buildExpectedSuggestionResponse()))
-                        )))
-                )
-        );
-        String responseJson = objectMapper.writeValueAsString(geminiResp);
-
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(header("x-goog-api-key", "test-gemini-key"))
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
-
         AiTestSuggestionService svc = new AiTestSuggestionService(
-                apiRepository, builder, objectMapper, changelogService,
-                "gemini",
-                "https://generativelanguage.googleapis.com/v1beta/models",
-                "test-gemini-key",
-                "gemini-3.5-flash-lite",
-                "http://localhost:20128/v1",
-                "",
-                "auto/best-coding"
+                apiRepository, RestClient.builder(), objectMapper, changelogService,
+                "https://integrate.api.nvidia.com/v1", "", MODEL
         );
 
-        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, new AiSuggestionRequest());
-
-        assertNotNull(result);
-        assertEquals(1L, result.getApiId());
-        assertEquals("gemini", svc.getProviderName());
-        assertEquals("https://generativelanguage.googleapis.com/v1beta/models", svc.getBaseUrl());
-        assertEquals("gemini-3.5-flash-lite", svc.getModel());
-        server.verify();
+        assertThrows(AiConfigurationException.class, () -> svc.generateAiSuggestions(1L, null));
     }
 
     private Api buildApi() {
@@ -546,7 +514,7 @@ class AiTestSuggestionServiceTest {
         );
     }
 
-    private String buildOpenRouterResponse(String content) throws Exception {
+    private String buildNvidiaResponse(String content) throws Exception {
         Map<String, Object> responseObj = Map.of(
                 "choices", List.of(
                         Map.of("message", Map.of("role", "assistant", "content", content))

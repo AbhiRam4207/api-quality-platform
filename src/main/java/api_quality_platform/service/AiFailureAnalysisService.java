@@ -30,9 +30,6 @@ public class AiFailureAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(AiFailureAnalysisService.class);
 
-    private static final String DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-    private static final String DEFAULT_OMNIROUTE_BASE_URL = "http://localhost:20128/v1";
-    private static final String DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
     private static final String CHAT_COMPLETIONS_PATH = "/chat/completions";
 
     private final TestExecutionService testExecutionService;
@@ -43,7 +40,6 @@ public class AiFailureAnalysisService {
     private final String baseUrl;
     private final String apiKey;
     private final String model;
-    private final String providerName;
 
     @Autowired
     public AiFailureAnalysisService(
@@ -52,87 +48,18 @@ public class AiFailureAnalysisService {
             RestClient.Builder restClientBuilder,
             ObjectMapper objectMapper,
             ChangelogService changelogService,
-            @Value("${ai.provider:gemini}") String provider,
-            @Value("${gemini.base-url:https://generativelanguage.googleapis.com/v1beta/models}") String geminiBaseUrl,
-            @Value("${GEMINI_API_KEY:${gemini.api-key:}}") String geminiApiKey,
-            @Value("${gemini.model:gemini-3.5-flash-lite}") String geminiModel,
-            @Value("${omniroute.base-url:http://localhost:20128/v1}") String omnirouteBaseUrl,
-            @Value("${OMNIROUTE_API_KEY:${omniroute.api-key:}}") String omnirouteApiKey,
-            @Value("${omniroute.model:auto/best-coding}") String omnirouteModel) {
+            @Value("${nvidia.base-url:https://integrate.api.nvidia.com/v1}") String baseUrl,
+            @Value("${nvidia.api-key:}") String apiKey,
+            @Value("${nvidia.model:deepseek-ai/deepseek-v4.1-flash}") String model) {
 
         this.testExecutionService = testExecutionService;
         this.apiTestRepository = apiTestRepository;
         this.restClientBuilder = restClientBuilder;
         this.objectMapper = objectMapper;
         this.changelogService = changelogService;
-
-        if ("gemini".equalsIgnoreCase(provider)) {
-            this.providerName = "gemini";
-            this.baseUrl = normalizeBaseUrl(geminiBaseUrl, DEFAULT_GEMINI_BASE_URL);
-            this.apiKey = geminiApiKey;
-            this.model = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel : "gemini-3.5-flash-lite";
-        } else if ("omniroute".equalsIgnoreCase(provider)) {
-            this.providerName = "omniroute";
-            this.baseUrl = normalizeBaseUrl(omnirouteBaseUrl, DEFAULT_OMNIROUTE_BASE_URL);
-            this.apiKey = omnirouteApiKey;
-            this.model = (omnirouteModel != null && !omnirouteModel.isBlank()) ? omnirouteModel : "auto/best-coding";
-        } else {
-            if (geminiApiKey != null && !geminiApiKey.isBlank()) {
-                this.providerName = "gemini";
-                this.baseUrl = normalizeBaseUrl(geminiBaseUrl, DEFAULT_GEMINI_BASE_URL);
-                this.apiKey = geminiApiKey;
-                this.model = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel : "gemini-3.5-flash-lite";
-            } else {
-                this.providerName = "omniroute";
-                this.baseUrl = normalizeBaseUrl(omnirouteBaseUrl, DEFAULT_OMNIROUTE_BASE_URL);
-                this.apiKey = omnirouteApiKey;
-                this.model = (omnirouteModel != null && !omnirouteModel.isBlank()) ? omnirouteModel : "auto/best-coding";
-            }
-        }
-    }
-
-    public AiFailureAnalysisService(
-            TestExecutionService testExecutionService,
-            ApiTestRepository apiTestRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String baseUrl,
-            String apiKey,
-            String model) {
-        this(testExecutionService, apiTestRepository, restClientBuilder, objectMapper, changelogService, baseUrl, apiKey, model, "omniroute");
-    }
-
-    public AiFailureAnalysisService(
-            TestExecutionService testExecutionService,
-            ApiTestRepository apiTestRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String baseUrl,
-            String apiKey,
-            String model,
-            String providerName) {
-        this.testExecutionService = testExecutionService;
-        this.apiTestRepository = apiTestRepository;
-        this.restClientBuilder = restClientBuilder;
-        this.objectMapper = objectMapper;
-        this.changelogService = changelogService;
-        this.baseUrl = normalizeBaseUrl(baseUrl, DEFAULT_OMNIROUTE_BASE_URL);
+        this.baseUrl = normalizeBaseUrl(baseUrl);
         this.apiKey = apiKey;
         this.model = model;
-        this.providerName = providerName != null ? providerName : "omniroute";
-    }
-
-    public AiFailureAnalysisService(
-            TestExecutionService testExecutionService,
-            ApiTestRepository apiTestRepository,
-            RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
-            ChangelogService changelogService,
-            String apiKey,
-            String model) {
-        this(testExecutionService, apiTestRepository, restClientBuilder, objectMapper, changelogService, DEFAULT_OPENROUTER_BASE_URL, apiKey, model, "openrouter");
     }
 
     public String getBaseUrl() {
@@ -143,13 +70,9 @@ public class AiFailureAnalysisService {
         return model;
     }
 
-    public String getProviderName() {
-        return providerName;
-    }
-
-    private static String normalizeBaseUrl(String url, String defaultUrl) {
+    private static String normalizeBaseUrl(String url) {
         if (url == null || url.isBlank()) {
-            return defaultUrl;
+            return "https://integrate.api.nvidia.com/v1";
         }
         String trimmed = url.trim();
         while (trimmed.endsWith("/")) {
@@ -166,101 +89,77 @@ public class AiFailureAnalysisService {
         TestExecution previousExecution = testExecutionService.getPreviousExecution(execution.getTestId(), executionId);
 
         if (apiKey == null || apiKey.isBlank()) {
-            String keyName = "gemini".equalsIgnoreCase(providerName) ? "GEMINI_API_KEY" : "OMNIROUTE_API_KEY";
-            throw new AiConfigurationException(keyName + " is not configured.");
+            throw new AiConfigurationException("NVIDIA_API_KEY is not configured.");
         }
 
         String prompt = buildPrompt(execution, apiTest, api, previousExecution);
 
-        Map<String, Object> body;
-        String endpointPath;
-        if ("gemini".equalsIgnoreCase(providerName)) {
-            body = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)
-                            ))
-                    )
-            );
-            endpointPath = "/" + model + ":generateContent";
-        } else {
-            body = Map.of(
-                    "model", model,
-                    "messages", List.of(
-                            Map.of("role", "user", "content", prompt)
-                    )
-            );
-            endpointPath = CHAT_COMPLETIONS_PATH;
-        }
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "user", "content", prompt)
+                )
+        );
 
-        String providerLabel = "gemini".equalsIgnoreCase(providerName) ? "Gemini" : "OmniRoute";
-        String logPrefix = providerLabel.toUpperCase();
+        String logPrefix = "NVIDIA";
         long startTime = System.currentTimeMillis();
-        log.info("Starting {} AI failure analysis for executionId: {} using model: {}", providerLabel, executionId, model);
-        changelogService.log(logPrefix + "_ANALYSIS_START", "executionId=" + executionId + " model=" + model);
+        log.info("Starting NVIDIA AI failure analysis for executionId: {} using model: {}", executionId, model);
+        changelogService.log("NVIDIA_ANALYSIS_START", "executionId=" + executionId + " model=" + model);
 
         try {
             RestClient client = restClientBuilder.baseUrl(baseUrl).build();
 
-            var requestSpec = client.post()
-                    .uri(endpointPath)
-                    .contentType(MediaType.APPLICATION_JSON);
-
-            if ("gemini".equalsIgnoreCase(providerName)) {
-                requestSpec.header("x-goog-api-key", apiKey);
-            } else {
-                requestSpec.header("Authorization", "Bearer " + apiKey);
-            }
-
-            String jsonResponse = requestSpec
+            String jsonResponse = client.post()
+                    .uri(CHAT_COMPLETIONS_PATH)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + apiKey)
                     .body(body)
                     .retrieve()
                     .body(String.class);
 
             long elapsed = System.currentTimeMillis() - startTime;
-            log.info("{} AI failure analysis completed in {}ms for executionId: {}", providerLabel, elapsed, executionId);
-            changelogService.log(logPrefix + "_ANALYSIS_SUCCESS", "executionId=" + executionId + " elapsed=" + elapsed + "ms");
+            log.info("NVIDIA AI failure analysis completed in {}ms for executionId: {}", elapsed, executionId);
+            changelogService.log("NVIDIA_ANALYSIS_SUCCESS", "executionId=" + executionId + " elapsed=" + elapsed + "ms");
 
             return parseResponse(jsonResponse, executionId);
         } catch (HttpClientErrorException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             HttpStatus status = (HttpStatus) e.getStatusCode();
             String responseBody = e.getResponseBodyAsString();
-            String keyName = "gemini".equalsIgnoreCase(providerName) ? "GEMINI_API_KEY" : "OMNIROUTE_API_KEY";
             if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
-                log.error("{} authentication error after {}ms: status={}, response={}", providerLabel, elapsed, status.value(), responseBody);
-                changelogService.log(logPrefix + "_ANALYSIS_AUTH_ERROR", "executionId=" + executionId + " status=" + status.value());
-                throw new AiConfigurationException(providerLabel + " authentication failed. Check " + keyName + ".");
+                log.error("NVIDIA authentication error after {}ms: status={}", logPrefix, elapsed, status.value());
+                changelogService.log("NVIDIA_ANALYSIS_AUTH_ERROR", "executionId=" + executionId + " status=" + status.value());
+                throw new AiConfigurationException("NVIDIA authentication failed. Check NVIDIA_API_KEY.");
             }
             if (status == HttpStatus.TOO_MANY_REQUESTS) {
-                log.error("{} rate limit exceeded after {}ms: response={}", providerLabel, elapsed, responseBody);
-                changelogService.log(logPrefix + "_ANALYSIS_RATE_LIMIT", "executionId=" + executionId);
-                throw new AiProviderException(providerLabel + " rate limit exceeded. Retry later.", e);
+                log.error("NVIDIA rate limit exceeded after {}ms: response={}", logPrefix, elapsed, responseBody);
+                changelogService.log("NVIDIA_ANALYSIS_RATE_LIMIT", "executionId=" + executionId);
+                throw new AiProviderException("NVIDIA rate limit exceeded. Retry later.", e);
             }
-            log.error("{} client error after {}ms: status={}, response={}", providerLabel, elapsed, status.value(), responseBody);
-            changelogService.log(logPrefix + "_ANALYSIS_CLIENT_ERROR", "executionId=" + executionId + " status=" + status.value());
-            throw new AiProviderException(providerLabel + " returned client error " + status.value() + ": " + responseBody, e);
+            log.error("NVIDIA client error after {}ms: status={}, response={}", logPrefix, elapsed, status.value(), responseBody);
+            changelogService.log("NVIDIA_ANALYSIS_CLIENT_ERROR", "executionId=" + executionId + " status=" + status.value());
+            throw new AiProviderException("NVIDIA returned client error " + status.value() + ": " + responseBody, e);
         } catch (HttpServerErrorException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             String responseBody = e.getResponseBodyAsString();
-            log.error("{} server error after {}ms: status={}, response={}", providerLabel, elapsed, e.getStatusCode().value(), responseBody);
-            changelogService.log(logPrefix + "_ANALYSIS_SERVER_ERROR", "executionId=" + executionId + " status=" + e.getStatusCode().value());
-            throw new AiProviderException(providerLabel + " server error " + e.getStatusCode().value() + ": " + responseBody, e);
+            log.error("NVIDIA server error after {}ms: status={}, response={}", logPrefix, elapsed, e.getStatusCode().value(), responseBody);
+            changelogService.log("NVIDIA_ANALYSIS_SERVER_ERROR", "executionId=" + executionId + " status=" + e.getStatusCode().value());
+            throw new AiProviderException("NVIDIA server error " + e.getStatusCode().value() + ": " + responseBody, e);
         } catch (ResourceAccessException e) {
             long elapsed = System.currentTimeMillis() - startTime;
-            log.error("{} network or timeout error after {}ms: {}", providerLabel, elapsed, e.getMessage());
-            changelogService.log(logPrefix + "_ANALYSIS_NETWORK_ERROR", "executionId=" + executionId);
-            throw new AiProviderException(providerLabel + " request failed due to network error or timeout after " + elapsed + "ms", e);
+            log.error("NVIDIA network or timeout error after {}ms: {}", logPrefix, elapsed, e.getMessage());
+            changelogService.log("NVIDIA_ANALYSIS_NETWORK_ERROR", "executionId=" + executionId);
+            throw new AiProviderException("NVIDIA request failed due to network error or timeout after " + elapsed + "ms", e);
         } catch (NotFoundException | AiConfigurationException | AiProviderException e) {
             long elapsed = System.currentTimeMillis() - startTime;
             log.error("AI failure analysis failed after {}ms: {}", elapsed, e.getMessage());
-            changelogService.log(logPrefix + "_ANALYSIS_FAILED", "executionId=" + executionId);
+            changelogService.log("NVIDIA_ANALYSIS_FAILED", "executionId=" + executionId);
             throw e;
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - startTime;
             log.error("Unexpected error during AI failure analysis after {}ms: {}", elapsed, e.getMessage());
-            changelogService.log(logPrefix + "_ANALYSIS_ERROR", "executionId=" + executionId);
-            throw new AiProviderException("Unexpected error from " + providerLabel + " after " + elapsed + "ms", e);
+            changelogService.log("NVIDIA_ANALYSIS_ERROR", "executionId=" + executionId);
+            throw new AiProviderException("Unexpected error from NVIDIA after " + elapsed + "ms", e);
         }
     }
 
@@ -319,18 +218,12 @@ public class AiFailureAnalysisService {
     }
 
     private AiFailureAnalysisResponse parseResponse(String jsonResponse, Long executionId) {
-        String providerLabel = "gemini".equalsIgnoreCase(providerName) ? "Gemini" : ("openrouter".equalsIgnoreCase(providerName) ? "OpenRouter" : "OmniRoute");
         try {
             JsonNode root = objectMapper.readTree(jsonResponse);
-            JsonNode contentNode;
-            if ("gemini".equalsIgnoreCase(providerName)) {
-                contentNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-            } else {
-                contentNode = root.path("choices").path(0).path("message").path("content");
-            }
+            JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
             if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-                log.error("{} response missing content node for executionId: {}", providerLabel, executionId);
-                throw new AiProviderException(providerLabel + " returned an empty or malformed response", new IllegalStateException("Missing content node"));
+                log.error("NVIDIA response missing content node for executionId: {}", executionId);
+                throw new AiProviderException("NVIDIA returned an empty or malformed response", new IllegalStateException("Missing content node"));
             }
             String content = contentNode.asText().trim();
             if (content.startsWith("```")) {
@@ -342,8 +235,8 @@ public class AiFailureAnalysisService {
         } catch (AiProviderException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to parse {} response for executionId {}: {}", providerLabel, executionId, e.getMessage());
-            throw new AiProviderException("Failed to parse " + providerLabel + " response", e);
+            log.error("Failed to parse NVIDIA response for executionId {}: {}", executionId, e.getMessage());
+            throw new AiProviderException("Failed to parse NVIDIA response", e);
         }
     }
 

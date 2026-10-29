@@ -29,10 +29,6 @@ public class ContractComparisonService {
         this.historyRepository = historyRepository;
     }
 
-    public ContractComparisonService(ObjectMapper objectMapper) {
-        this(objectMapper, null);
-    }
-
     public Set<String> getFieldNames(String responseBody) {
 
         if (responseBody == null || responseBody.isBlank()) {
@@ -219,16 +215,6 @@ public class ContractComparisonService {
         );
 
         return result;
-    }
-
-    public ContractComparisonResult compareAndReturn(
-            TestExecution previousExecution,
-            TestExecution currentExecution) {
-
-        return compareContracts(
-                previousExecution.getResponseBody(),
-                currentExecution.getResponseBody()
-        );
     }
 
     public void saveHistory(
