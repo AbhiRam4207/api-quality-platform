@@ -1,0 +1,38 @@
+- [2026-10-23 09:20:00] IMPLEMENTATION (Pre-Save Test Validation & Contract-Aware Prompts): Implemented strict JSON map validation for `expectedFieldTypes` and valid status-code range checks (100-599) in `ApiTestService.createTest`. Updated `AiTestSuggestionService.buildPrompt` to enforce correct JSON map types (`NUMBER`, `STRING`, etc.) and prevent CSV format hallucinations for ShopAPI V1 fields. Ran full test suite: 137 tests passed successfully with 0 failures.[2026-10-23 14:45:53] OPENROUTER_SUGGESTION_START | apiId=1 model=cohere/north-mini-code:free
+[2026-10-23 14:46:17] OPENROUTER_SUGGESTION_SUCCESS | apiId=1 elapsed=24006ms
+- [2026-10-23 15:02:00] IMPLEMENTATION (Deterministic Validation Boundary for AI Test Suggestions): Implemented strict server-side validation in `AiTestSuggestionService` and `OllamaAiTestSuggestionService` to enforce valid JSON map `expectedFieldTypes`, ShopAPI V1 confirmed fields (`id`, `name`, `price`, `category`, `stockQuantity`), valid authentication configuration, query parameter placement in `queryParams`, and verified expected status codes. Added focused unit tests. Ran full Maven test suite: 142 tests passed successfully with 0 failures.
+[2026-10-23 15:07:13] OPENROUTER_SUGGESTION_START | apiId=1 model=cohere/north-mini-code:free
+[2026-10-23 15:07:43] OPENROUTER_SUGGESTION_SUCCESS | apiId=1 elapsed=30166ms
+[2026-10-23 15:18:17] OPENROUTER_SUGGESTION_START | apiId=1 model=cohere/north-mini-code:free
+[2026-10-23 15:19:04] OPENROUTER_SUGGESTION_START | apiId=1 model=cohere/north-mini-code:free
+[2026-10-23 15:19:07] OPENROUTER_SUGGESTION_SUCCESS | apiId=1 elapsed=49891ms
+[2026-10-23 15:19:29] OPENROUTER_SUGGESTION_SUCCESS | apiId=1 elapsed=25521ms
+[2026-10-23 15:25:42] OPENROUTER_SUGGESTION_START | apiId=1 model=cohere/north-mini-code:free
+[2026-10-23 15:25:43] OPENROUTER_SUGGESTION_RATE_LIMIT | apiId=1
+- [2026-10-24 00:01:00] GEMINI MIGRATION: Migrated `AiTestSuggestionService` and `AiFailureAnalysisService` to call the official Google Gemini API (`https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`) using the `x-goog-api-key` header and parsing `candidates[0].content.parts[0].text`. Configured `ai.provider=gemini`, `gemini.base-url`, `gemini.api-key`, and `gemini.model=gemini-1.5-flash`. Increased RestClient read timeout to 90 seconds. Ran full Maven test suite: 147 tests passed successfully with 0 failures.
+[2026-10-23 23:25:31] OMNIROUTE_SUGGESTION_START | apiId=1 model=auto/best-coding
+[2026-10-23 23:26:01] OMNIROUTE_SUGGESTION_ERROR | apiId=1
+[2026-10-23 23:27:55] OMNIROUTE_SUGGESTION_START | apiId=1 model=auto/best-coding
+[2026-10-23 23:28:25] OMNIROUTE_SUGGESTION_ERROR | apiId=1
+[2026-10-23 23:30:15] OMNIROUTE_SUGGESTION_START | apiId=1 model=auto/best-coding
+[2026-10-23 23:30:45] OMNIROUTE_SUGGESTION_ERROR | apiId=1
+[2026-10-23 23:34:43] OMNIROUTE_SUGGESTION_START | apiId=1 model=auto/best-coding
+[2026-10-23 23:35:08] OMNIROUTE_SUGGESTION_SUCCESS | apiId=1 elapsed=24484ms
+[2026-10-23 23:35:08] OMNIROUTE_SUGGESTION_FAILED | apiId=1
+[2026-10-23 23:37:03] OMNIROUTE_SUGGESTION_START | apiId=1 model=auto/best-coding
+[2026-10-23 23:37:34] OMNIROUTE_SUGGESTION_ERROR | apiId=1
+[2026-10-23 23:40:46] OMNIROUTE_SUGGESTION_START | apiId=1 model=gemini-3.1-flash-lite
+[2026-10-23 23:40:51] OMNIROUTE_SUGGESTION_SUCCESS | apiId=1 elapsed=5924ms
+[2026-10-23 23:40:52] OMNIROUTE_SUGGESTION_FAILED | apiId=1
+[2026-10-23 23:43:18] OMNIROUTE_SUGGESTION_START | apiId=1 model=zm/google/gemini-3.1-flash-lite
+[2026-10-23 23:43:29] OMNIROUTE_SUGGESTION_AUTH_ERROR | apiId=1 status=403
+[2026-10-24 00:04:03] GEMINI_SUGGESTION_START | apiId=1 model=gemini-1.5-flash
+[2026-10-24 00:04:05] GEMINI_SUGGESTION_CLIENT_ERROR | apiId=1 status=404
+[2026-10-24 00:05:03] GEMINI_SUGGESTION_START | apiId=1 model=gemini-1.5-flash
+- [2026-10-24 00:37:00] AI SERVICE DIAGNOSTICS & GEMINI TEST: Added enhanced exception logging and exception cause preservation in `AiTestSuggestionService`. Added unit test `shouldSupportGeminiConfigurationAndEndpoint` validating Gemini `x-goog-api-key` header and `/{model}:generateContent` endpoint structure. Ran full Maven test suite: 148 tests passed successfully with 0 failures.
+[2026-10-25 17:11:33] GEMINI_SUGGESTION_START | apiId=1 model=gemini-3.5-flash-lite
+[2026-10-25 17:11:36] GEMINI_SUGGESTION_SUCCESS | apiId=1 elapsed=3342ms
+[2026-10-25 17:11:37] GEMINI_SUGGESTION_FAILED | apiId=1
+[2026-10-25 23:17:13] GEMINI_SUGGESTION_START | apiId=1 model=gemini-3.5-flash-lite
+[2026-10-25 23:17:17] GEMINI_SUGGESTION_SUCCESS | apiId=1 elapsed=4101ms
+[2026-10-25 23:17:18] GEMINI_SUGGESTION_FAILED | apiId=1

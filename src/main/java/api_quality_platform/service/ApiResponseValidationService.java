@@ -99,16 +99,39 @@ public class ApiResponseValidationService {
     }
 
     private boolean hasField(JsonNode node, String fieldPath) {
-        String[] parts = fieldPath.split("\\.");
+        if (fieldPath == null || fieldPath.isBlank()) {
+            return false;
+        }
+        String normalized = fieldPath.replace("[]", ".0");
+        normalized = normalized.replace("[", ".").replace("]", "");
+        String[] parts = normalized.split("\\.");
         JsonNode current = node;
         for (String part : parts) {
-            if (current.isObject() && current.has(part)) {
-                current = current.get(part);
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (current.isObject()) {
+                if (current.has(part)) {
+                    current = current.get(part);
+                } else {
+                    return false;
+                }
+            } else if (current.isArray()) {
+                try {
+                    int index = Integer.parseInt(part);
+                    if (index >= 0 && index < current.size()) {
+                        current = current.get(index);
+                    } else {
+                        return false;
+                    }
+                } catch (NumberFormatException e) {
+                    return false;
+                }
             } else {
                 return false;
             }
         }
-        return true;
+        return current != null && !current.isMissingNode();
     }
 
     private void validateFieldTypes(JsonNode root, Map<String, String> expectedTypes, List<String> errors) {

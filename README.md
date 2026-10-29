@@ -6,7 +6,7 @@ The AI API Quality & Reliability Platform is a Java-based backend project design
 
 Instead of manually checking every API response, developers can register an API, define expected behavior, execute reusable tests, validate responses, compare contracts, and identify potential regressions.
 
-> **Project status:** Actively under development. The core API testing and contract-comparison workflows are implemented. Regression analysis and additional reliability improvements are evolving. AI-assisted capabilities are part of the planned roadmap, not a claim of currently implemented functionality.
+> **Project status:** Actively under development. Core API testing, contract comparison, execution history, regression analysis, and OpenRouter AI integration (`cohere/north-mini-code:free` for test suggestions and failure analysis) are implemented and verified with 136 automated tests passing.
 
 ---
 
@@ -228,6 +228,21 @@ $env:SPRING_DATASOURCE_PASSWORD="YOUR_LOCAL_DATABASE_PASSWORD"
 Replace the placeholder with your local database password. Do not commit real credentials to source control.
 
 The application configuration contains safe defaults for the connection URL and username, but the password must be supplied in your local environment when required.
+
+### Startup validation
+
+The application validates the database configuration before creating the JPA `EntityManagerFactory`. If a required password is not configured, startup stops immediately with a single actionable message instead of a long Hibernate stack trace.
+
+This check:
+
+- Runs before any database connection is attempted.
+- Prints setup instructions only, never a credential value.
+- Does not run for embedded or passwordless database URLs.
+- Does not run when a password has been supplied through configuration.
+
+To configure the variable in IntelliJ IDEA, use **Run Configuration -> Environment variables** (or **Modify options -> Add VM options**) and add `SPRING_DATASOURCE_PASSWORD`, then restart the run. Changes to the variable only apply to processes started after the change.
+
+If startup is still blocked after setting the variable in IntelliJ, confirm the value was added to the run configuration currently in use rather than a template, and that no profile is overriding the datasource properties.
 
 ### 4. Run the Application
 

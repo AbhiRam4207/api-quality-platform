@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+api_quality_platform.config.DatasourceConfigurationGuard

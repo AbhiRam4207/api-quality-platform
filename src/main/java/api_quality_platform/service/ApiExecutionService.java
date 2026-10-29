@@ -70,6 +70,14 @@ public class ApiExecutionService {
     public ApiExecutionResult execute(String url, String method, String authType, String username, String password, String token, String apiKey, String apiKeyHeader, String body, String headersJson, String queryParamsJson, String pathParamsJson, Long timeoutMs) {
         String upperMethod = method != null && !method.isBlank() ? method.toUpperCase() : "GET";
 
+        if (url == null || url.isBlank()) {
+            return new ApiExecutionResult(
+                    "Target URL is missing or blank",
+                    "INVALID_URL",
+                    0L
+            );
+        }
+
         RestClient restClientToUse = restClient;
         if (timeoutMs != null && timeoutMs > 0) {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -93,6 +101,14 @@ public class ApiExecutionService {
 
         String resolvedUrl = resolvePathParams(url, pathParamsJson);
         URI uri = buildUri(resolvedUrl, queryParamsJson);
+
+        if (uri.getScheme() == null || uri.getHost() == null) {
+            return new ApiExecutionResult(
+                    "Target URL is invalid or missing scheme/host: " + url,
+                    "INVALID_URL",
+                    0L
+            );
+        }
 
         long start = System.currentTimeMillis();
 

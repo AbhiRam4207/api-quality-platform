@@ -58,14 +58,17 @@ src/main/java/api_quality_platform/
 └── service/
     ├── ApiService.java                     # API operations
     ├── ApiTestService.java                 # Test operations & execution orchestration (incl. request body + headers + query params + response time + timeout wiring + error handling)
-    ├── ApiExecutionService.java            # HTTP method-aware execution via RestClient (incl. body, headers, query params, timing, timeout, error classification)
+    ├── ApiExecutionService.java            # HTTP method-aware execution via RestClient (incl. body, headers, query params, timing, timeout, error classification, URL validation safety)
     ├── ApiExecutionResult.java             # Execution result wrapper (incl. actual response time + error info)
     ├── ApiResponseValidationService.java   # Status/field/type/response-time validation of responses
     ├── ApiTestResult.java                  # Test result wrapper (incl. validation outcome + actual response time + execution error info)
     ├── ContractComparisonService.java      # JSON field-level diffing + history persistence
     ├── RegressionService.java              # Regression detection between executions
     ├── TestExecutionService.java           # Persistence & lookup for test executions
-    └── ValidationResult.java               # Validation result wrapper
+    ├── ValidationResult.java               # Validation result wrapper
+    ├── AiTestSuggestionService.java        # AI test suggestion generation via OpenRouter (cohere/north-mini-code:free)
+    ├── AiFailureAnalysisService.java       # AI failure analysis via OpenRouter (cohere/north-mini-code:free)
+    └── ChangelogService.java               # Action auditing service logging to changelog.txt
 ```
 
 ### Test Sources

@@ -1,16 +1,13 @@
 package api_quality_platform.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 class ApiResponseValidationServiceNegativeStatusTest {
 
-    @Autowired
-    private ApiResponseValidationService validationService;
+    private final ApiResponseValidationService validationService = new ApiResponseValidationService(new ObjectMapper());
 
     @Test
     void shouldPassWhenExpected404MatchesActual404() {

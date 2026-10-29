@@ -95,8 +95,7 @@ class ApiExecutionServiceErrorHandlingTest {
         int port = serverSocket.getLocalPort();
 
         Thread serverThread = new Thread(() -> {
-            try {
-                java.net.Socket socket = serverSocket.accept();
+            try (java.net.Socket socket = serverSocket.accept()) {
                 Thread.sleep(5000);
             } catch (Exception e) {
                 // ignore
@@ -122,5 +121,31 @@ class ApiExecutionServiceErrorHandlingTest {
             serverSocket.close();
             serverThread.interrupt();
         }
+    }
+
+    @Test
+    void shouldRejectNullOrBlankUrl() {
+        ApiExecutionService service = new ApiExecutionService(
+                RestClient.builder().build(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+        ApiExecutionResult nullResult = service.execute(null, "GET", null, null);
+        assertTrue(nullResult.isError());
+        assertEquals("INVALID_URL", nullResult.getErrorType());
+
+        ApiExecutionResult blankResult = service.execute("   ", "GET", null, null);
+        assertTrue(blankResult.isError());
+        assertEquals("INVALID_URL", blankResult.getErrorType());
+    }
+
+    @Test
+    void shouldRejectUrlWithoutSchemeOrHost() {
+        ApiExecutionService service = new ApiExecutionService(
+                RestClient.builder().build(),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+        ApiExecutionResult result = service.execute("/api/products", "GET", null, null);
+        assertTrue(result.isError());
+        assertEquals("INVALID_URL", result.getErrorType());
     }
 }

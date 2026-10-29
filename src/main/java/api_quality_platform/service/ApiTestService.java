@@ -7,11 +7,14 @@ import api_quality_platform.entity.TestExecution;
 import api_quality_platform.exception.NotFoundException;
 import api_quality_platform.repository.ApiRepository;
 import api_quality_platform.repository.ApiTestRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ApiTestService {
@@ -21,24 +24,52 @@ public class ApiTestService {
     private final ApiExecutionService apiExecutionService;
     private final TestExecutionService testExecutionService;
     private final ApiResponseValidationService validationService;
+    private final ObjectMapper objectMapper;
 
     public ApiTestService(
             ApiTestRepository apiTestRepository,
             ApiRepository apiRepository,
             ApiExecutionService apiExecutionService,
             TestExecutionService testExecutionService,
-            ApiResponseValidationService validationService) {
+            ApiResponseValidationService validationService,
+            ObjectMapper objectMapper) {
 
         this.apiTestRepository = apiTestRepository;
         this.apiRepository = apiRepository;
         this.apiExecutionService = apiExecutionService;
         this.testExecutionService = testExecutionService;
         this.validationService = validationService;
+        this.objectMapper = objectMapper;
     }
 
     public ApiTestResponse createTest(Long apiId, ApiTestCreateRequest request) {
         apiRepository.findById(apiId)
                 .orElseThrow(() -> new NotFoundException("Api not found with id: " + apiId));
+
+        if (request.getExpectedStatus() == null || request.getExpectedStatus() < 100 || request.getExpectedStatus() > 599) {
+            throw new IllegalArgumentException("Expected status must be between 100 and 599");
+        }
+
+        if (request.getExpectedFieldTypes() != null && !request.getExpectedFieldTypes().isBlank()) {
+            try {
+                Map<String, String> map = objectMapper.readValue(
+                        request.getExpectedFieldTypes(),
+                        new TypeReference<Map<String, String>>() {}
+                );
+                for (String type : map.values()) {
+                    String upper = type != null ? type.toUpperCase() : "";
+                    if (!upper.equals("NUMBER") && !upper.equals("STRING") && !upper.equals("BOOLEAN") &&
+                            !upper.equals("ARRAY") && !upper.equals("OBJECT") && !upper.equals("NULL")) {
+                        throw new IllegalArgumentException("Invalid JSON field type: " + type + ". Supported types are NUMBER, STRING, BOOLEAN, ARRAY, OBJECT, NULL.");
+                    }
+                }
+            } catch (Exception e) {
+                if (e instanceof IllegalArgumentException) {
+                    throw (IllegalArgumentException) e;
+                }
+                throw new IllegalArgumentException("Invalid expectedFieldTypes JSON: " + e.getMessage(), e);
+            }
+        }
 
         ApiTest apiTest = new ApiTest();
         apiTest.setTestName(request.getTestName());

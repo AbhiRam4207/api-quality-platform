@@ -1,6 +1,5 @@
 package api_quality_platform.service;
 
-import api_quality_platform.entity.ApiTest;
 import api_quality_platform.entity.TestExecution;
 import api_quality_platform.repository.TestExecutionRepository;
 import api_quality_platform.exception.NotFoundException;

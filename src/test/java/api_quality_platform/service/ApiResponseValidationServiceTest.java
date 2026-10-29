@@ -1,16 +1,13 @@
 package api_quality_platform.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
 class ApiResponseValidationServiceTest {
 
-    @Autowired
-    private ApiResponseValidationService validationService;
+    private final ApiResponseValidationService validationService = new ApiResponseValidationService(new ObjectMapper());
 
     @Test
     void shouldPassWhenStatusAndFieldsAreCorrect() {
@@ -98,5 +95,36 @@ class ApiResponseValidationServiceTest {
         ValidationResult result = validationService.validateResponseTime(100L, 100L);
         assertTrue(result.isValid());
         assertTrue(result.getErrors().isEmpty());
+    }
+
+    @Test
+    void shouldPassWhenArrayPathIsValid() {
+        String body = "[{\"id\": 1, \"name\": \"Widget\", \"price\": 9.99}]";
+        ValidationResult result = validationService.validate(200, 200, body, "[0].id,[0].name,[0].price");
+        assertTrue(result.isValid());
+        assertTrue(result.getErrors().isEmpty());
+    }
+
+    @Test
+    void shouldFailWhenArrayFieldIsMissing() {
+        String body = "[{\"id\": 1}]";
+        ValidationResult result = validationService.validate(200, 200, body, "[0].id,[0].name");
+        assertFalse(result.isValid());
+        assertTrue(result.getErrors().contains("Missing required field: [0].name"));
+    }
+
+    @Test
+    void shouldFailWhenArrayIndexOutOfBounds() {
+        String body = "[{\"id\": 1}]";
+        ValidationResult result = validationService.validate(200, 200, body, "[5].id");
+        assertFalse(result.isValid());
+        assertTrue(result.getErrors().contains("Missing required field: [5].id"));
+    }
+
+    @Test
+    void shouldPassWhenNestedObjectInsideArrayIsValid() {
+        String body = "{\"products\": [{\"details\": {\"sku\": \"ABC-123\"}}]}";
+        ValidationResult result = validationService.validate(200, 200, body, "products[0].details.sku");
+        assertTrue(result.isValid());
     }
 }
