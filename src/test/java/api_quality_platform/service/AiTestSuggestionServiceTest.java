@@ -522,4 +522,187 @@ class AiTestSuggestionServiceTest {
         );
         return new ObjectMapper().writeValueAsString(responseObj);
     }
+
+    // ===== Authentication Handling Tests =====
+
+    @Test
+    void shouldInheritApiAuthForPositiveTestOnAuthenticatedApi() throws Exception {
+        Api api = new Api();
+        api.setId(1L);
+        api.setName("Secured API");
+        api.setUrl("http://localhost:8081/api/secured");
+        api.setMethod("GET");
+        api.setAuthType("BASIC");
+        api.setUsername("admin");
+        api.setPassword("secret123");
+        when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
+
+        api_quality_platform.dto.ApiTestCreateRequest req = new api_quality_platform.dto.ApiTestCreateRequest();
+        req.setExpectedStatus(200);
+        req.setAuthType("NONE"); // AI returns NONE because it doesn't know credentials
+
+        ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "Secured API", List.of(
+                new ApiTestSuggestionResponse.SuggestionItem("Standard Success Test", "Tests 200 response", req)
+        ));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(NVIDIA_URL))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiTestSuggestionService svc = service(builder, TEST_KEY);
+        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.getSuggestions().size());
+        api_quality_platform.dto.ApiTestCreateRequest resultReq = result.getSuggestions().get(0).getTestRequest();
+        assertEquals("BASIC", resultReq.getAuthType());
+        assertEquals("admin", resultReq.getUsername());
+        assertEquals("secret123", resultReq.getPassword());
+        server.verify();
+    }
+
+    @Test
+    void shouldPreserveMissingAuthNegativeTest() throws Exception {
+        Api api = new Api();
+        api.setId(1L);
+        api.setName("Secured API");
+        api.setUrl("http://localhost:8081/api/secured");
+        api.setMethod("GET");
+        api.setAuthType("BASIC");
+        api.setUsername("admin");
+        api.setPassword("secret123");
+        when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
+
+        api_quality_platform.dto.ApiTestCreateRequest req = new api_quality_platform.dto.ApiTestCreateRequest();
+        req.setExpectedStatus(401);
+        req.setAuthType("NONE"); // Intentionally testing missing auth
+
+        ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "Secured API", List.of(
+                new ApiTestSuggestionResponse.SuggestionItem("Unauthorized Missing Auth Test", "Tests 401 without credentials", req)
+        ));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(NVIDIA_URL))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiTestSuggestionService svc = service(builder, TEST_KEY);
+        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, null);
+
+        assertNotNull(result);
+        api_quality_platform.dto.ApiTestCreateRequest resultReq = result.getSuggestions().get(0).getTestRequest();
+        assertEquals("NONE", resultReq.getAuthType()); // Preserved as NONE
+        assertNull(resultReq.getUsername());
+        assertNull(resultReq.getPassword());
+        server.verify();
+    }
+
+    @Test
+    void shouldPreserveInvalidCredentialsNegativeTest() throws Exception {
+        Api api = new Api();
+        api.setId(1L);
+        api.setName("Secured API");
+        api.setUrl("http://localhost:8081/api/secured");
+        api.setMethod("GET");
+        api.setAuthType("BASIC");
+        api.setUsername("admin");
+        api.setPassword("secret123");
+        when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
+
+        api_quality_platform.dto.ApiTestCreateRequest req = new api_quality_platform.dto.ApiTestCreateRequest();
+        req.setExpectedStatus(401);
+        req.setAuthType("BASIC");
+        req.setUsername("wrong_user");
+        req.setPassword("wrong_pass");
+
+        ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "Secured API", List.of(
+                new ApiTestSuggestionResponse.SuggestionItem("Invalid Credentials Test", "Tests 401 with bad credentials", req)
+        ));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(NVIDIA_URL))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiTestSuggestionService svc = service(builder, TEST_KEY);
+        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, null);
+
+        assertNotNull(result);
+        api_quality_platform.dto.ApiTestCreateRequest resultReq = result.getSuggestions().get(0).getTestRequest();
+        assertEquals("BASIC", resultReq.getAuthType());
+        assertEquals("wrong_user", resultReq.getUsername()); // Preserved invalid credentials
+        assertEquals("wrong_pass", resultReq.getPassword()); // Not overwritten with real credentials
+        server.verify();
+    }
+
+    @Test
+    void shouldHandlePublicApiWithNoneAuth() throws Exception {
+        Api api = buildApi(); // authType = "NONE"
+        when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
+
+        api_quality_platform.dto.ApiTestCreateRequest req = new api_quality_platform.dto.ApiTestCreateRequest();
+        req.setExpectedStatus(200);
+        // authType is null - should default to NONE
+
+        ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "ShopAPI Products", List.of(
+                new ApiTestSuggestionResponse.SuggestionItem("Public Endpoint Test", "Tests public API", req)
+        ));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(NVIDIA_URL))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiTestSuggestionService svc = service(builder, TEST_KEY);
+        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, null);
+
+        assertNotNull(result);
+        api_quality_platform.dto.ApiTestCreateRequest resultReq = result.getSuggestions().get(0).getTestRequest();
+        assertEquals("NONE", resultReq.getAuthType());
+        server.verify();
+    }
+
+    @Test
+    void shouldProvideInvalidCredentialsWhenMissing() throws Exception {
+        Api api = new Api();
+        api.setId(1L);
+        api.setName("Secured API");
+        api.setUrl("http://localhost:8081/api/secured");
+        api.setMethod("GET");
+        api.setAuthType("BASIC");
+        api.setUsername("admin");
+        api.setPassword("secret123");
+        when(apiRepository.findById(1L)).thenReturn(Optional.of(api));
+
+        api_quality_platform.dto.ApiTestCreateRequest req = new api_quality_platform.dto.ApiTestCreateRequest();
+        req.setExpectedStatus(401);
+        req.setAuthType("BASIC");
+        // username and password are null - should get placeholder invalid values
+
+        ApiTestSuggestionResponse resp = new ApiTestSuggestionResponse(1L, "Secured API", List.of(
+                new ApiTestSuggestionResponse.SuggestionItem("Invalid Password Test", "Tests invalid credentials", req)
+        ));
+        String responseBody = buildNvidiaResponse(objectMapper.writeValueAsString(resp));
+
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(NVIDIA_URL))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        AiTestSuggestionService svc = service(builder, TEST_KEY);
+        ApiTestSuggestionResponse result = svc.generateAiSuggestions(1L, null);
+
+        assertNotNull(result);
+        api_quality_platform.dto.ApiTestCreateRequest resultReq = result.getSuggestions().get(0).getTestRequest();
+        assertEquals("BASIC", resultReq.getAuthType());
+        assertNotNull(resultReq.getUsername());
+        assertNotNull(resultReq.getPassword());
+        assertNotEquals("admin", resultReq.getUsername()); // Must be different from real credentials
+        server.verify();
+    }
 }

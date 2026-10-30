@@ -326,21 +326,125 @@ public class AiTestSuggestionService {
 
             String testNameLower = (item.getTestName() != null ? item.getTestName() : "").toLowerCase();
             String descLower = (item.getDescription() != null ? item.getDescription() : "").toLowerCase();
-            boolean claimsAuth = testNameLower.contains("credential") || testNameLower.contains("auth") || testNameLower.contains("unauthorized") ||
-                    descLower.contains("credential") || descLower.contains("auth") || descLower.contains("unauthorized") ||
-                    req.getAuthType() != null;
+            String currentAuthType = req.getAuthType();
 
-            if (claimsAuth) {
-                if (req.getAuthType() == null || req.getAuthType().isBlank()) {
+            boolean apiRequiresAuth = isApiRequiringAuth(api);
+
+            if (apiRequiresAuth) {
+                AuthScenario scenario = detectAuthScenario(item, req);
+                switch (scenario) {
+                    case POSITIVE -> {
+                        // Positive tests inherit API authentication
+                        if (currentAuthType == null || currentAuthType.isBlank() || "NONE".equalsIgnoreCase(currentAuthType)) {
+                            req.setAuthType(api.getAuthType() != null && !api.getAuthType().isBlank() ? api.getAuthType() : "BASIC");
+                        }
+                        if ("BASIC".equalsIgnoreCase(req.getAuthType())) {
+                            if (req.getUsername() == null || req.getUsername().isBlank()) {
+                                req.setUsername(api.getUsername());
+                            }
+                            if (req.getPassword() == null || req.getPassword().isBlank()) {
+                                req.setPassword(api.getPassword());
+                            }
+                        }
+                    }
+                    case MISSING_CREDENTIALS -> {
+                        // Explicitly represent negative missing-credentials scenario
+                        req.setAuthType("NONE");
+                        req.setUsername(null);
+                        req.setPassword(null);
+                    }
+                    case INVALID_CREDENTIALS -> {
+                        // Explicitly represent negative invalid-credentials scenario
+                        String authType = (currentAuthType != null && !currentAuthType.isBlank() && !"NONE".equalsIgnoreCase(currentAuthType))
+                                ? currentAuthType
+                                : (api.getAuthType() != null && !api.getAuthType().isBlank() ? api.getAuthType() : "BASIC");
+                        req.setAuthType(authType);
+                        if ("BASIC".equalsIgnoreCase(authType)) {
+                            String user = (req.getUsername() != null && !req.getUsername().isBlank()) ? req.getUsername() : "invalid_user";
+                            String pass = (req.getPassword() != null && !req.getPassword().isBlank()) ? req.getPassword() : "invalid_password";
+                            if (user.equals(api.getUsername()) && pass.equals(api.getPassword())) {
+                                pass = "invalid_" + pass;
+                            }
+                            req.setUsername(user);
+                            req.setPassword(pass);
+                        }
+                    }
+                    case UNSUPPORTED_AUTH -> {
+                        // Explicitly represent unsupported-auth scenario
+                        if (currentAuthType == null || currentAuthType.isBlank() || "NONE".equalsIgnoreCase(currentAuthType)) {
+                            req.setAuthType("UNSUPPORTED");
+                        }
+                    }
+                }
+            } else {
+                // Public API: no authentication required
+                boolean claimsAuth = testNameLower.contains("credential") || testNameLower.contains("auth") || testNameLower.contains("unauthorized") ||
+                        descLower.contains("credential") || descLower.contains("auth") || descLower.contains("unauthorized") ||
+                        (currentAuthType != null && !"NONE".equalsIgnoreCase(currentAuthType));
+
+                if (claimsAuth && (currentAuthType == null || currentAuthType.isBlank())) {
                     throw new AiProviderException("Authentication configuration cannot be null or blank for test claiming credentials or auth", new IllegalArgumentException());
                 }
-                if (!"NONE".equalsIgnoreCase(req.getAuthType()) && (req.getUsername() == null || req.getUsername().isBlank())) {
-                    throw new AiProviderException("Authentication configuration missing credentials for auth test", new IllegalArgumentException());
-                }
-                if ("NONE".equalsIgnoreCase(req.getAuthType()) && ("BASIC".equalsIgnoreCase(api.getAuthType()) || api.getUsername() != null)) {
-                    throw new AiProviderException("Authentication mismatch: test uses NONE auth but API requires authentication", new IllegalArgumentException());
+
+                if (req.getAuthType() == null || req.getAuthType().isBlank()) {
+                    req.setAuthType("NONE");
                 }
             }
         }
+    }
+
+    private enum AuthScenario {
+        POSITIVE,
+        MISSING_CREDENTIALS,
+        INVALID_CREDENTIALS,
+        UNSUPPORTED_AUTH
+    }
+
+    private boolean isApiRequiringAuth(Api api) {
+        if (api == null) {
+            return false;
+        }
+        String authType = api.getAuthType();
+        boolean hasAuthType = authType != null && !authType.isBlank() && !"NONE".equalsIgnoreCase(authType.trim());
+        boolean hasCredentials = (api.getUsername() != null && !api.getUsername().isBlank())
+                || (api.getToken() != null && !api.getToken().isBlank())
+                || (api.getApiKey() != null && !api.getApiKey().isBlank());
+        return hasAuthType || hasCredentials;
+    }
+
+    private AuthScenario detectAuthScenario(ApiTestSuggestionResponse.SuggestionItem item, ApiTestCreateRequest req) {
+        String testName = (item.getTestName() != null ? item.getTestName() : "").toLowerCase();
+        String desc = (item.getDescription() != null ? item.getDescription() : "").toLowerCase();
+        Integer status = req.getExpectedStatus();
+        String authType = req.getAuthType() != null ? req.getAuthType().trim().toUpperCase() : "";
+
+        boolean mentionsUnsupported = testName.contains("unsupported") || desc.contains("unsupported");
+        if (mentionsUnsupported || (!authType.isEmpty() && !authType.equals("NONE") && !authType.equals("BASIC") && !authType.equals("BEARER") && !authType.equals("API_KEY"))) {
+            return AuthScenario.UNSUPPORTED_AUTH;
+        }
+
+        boolean mentionsInvalid = testName.contains("invalid") || testName.contains("bad") || testName.contains("wrong")
+                || desc.contains("invalid") || desc.contains("bad") || desc.contains("wrong");
+        if (mentionsInvalid) {
+            return AuthScenario.INVALID_CREDENTIALS;
+        }
+
+        boolean mentionsMissing = testName.contains("missing") || testName.contains("no auth") || testName.contains("without auth")
+                || testName.contains("unauthenticated") || testName.contains("no credential") || testName.contains("without credential")
+                || desc.contains("missing") || desc.contains("no auth") || desc.contains("without auth")
+                || desc.contains("unauthenticated") || desc.contains("no credential") || desc.contains("without credential");
+
+        boolean mentionsUnauthorized = testName.contains("unauthorized") || desc.contains("unauthorized")
+                || (status != null && (status == 401 || status == 403));
+
+        if (mentionsMissing || (mentionsUnauthorized && ("NONE".equalsIgnoreCase(authType) || authType.isEmpty()))) {
+            return AuthScenario.MISSING_CREDENTIALS;
+        }
+
+        if (mentionsUnauthorized) {
+            return AuthScenario.INVALID_CREDENTIALS;
+        }
+
+        return AuthScenario.POSITIVE;
     }
 }

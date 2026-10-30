@@ -40,3 +40,16 @@
 [2026-10-29 23:33:38] GEMINI_SUGGESTION_SUCCESS | apiId=1 elapsed=19455ms
 [2026-10-29 23:33:38] GEMINI_SUGGESTION_FAILED | apiId=1
 - [2026-10-30 00:15:00] CLEANUP (NVIDIA-only AI consolidation): Consolidated AI provider integrations to NVIDIA as the sole active provider. Removed Gemini, OpenRouter, OmniRoute, and Ollama provider implementations and configurations. Simplified AiTestSuggestionService and AiFailureAnalysisService to NVIDIA-only. Removed dead code: OllamaAiTestSuggestionService, OllamaAiFailureAnalysisService, OllamaConnectionTest, unused ValidationResponse DTO, unused ContractComparisonService single-arg constructor and compareAndReturn method. Hardcoded NVIDIA API key retained in application.properties for local development only. Verified: 150 tests pass, application starts on port 8080, PostgreSQL 18 connectivity confirmed, no secrets in logs.
+[2026-10-30 11:51:53] NVIDIA_SUGGESTION_START | apiId=1 model=openai/gpt-oss-20b
+[2026-10-30 11:52:33] NVIDIA_SUGGESTION_START | apiId=1 model=openai/gpt-oss-20b
+[2026-10-30 11:52:51] NVIDIA_SUGGESTION_SUCCESS | apiId=1 elapsed=57576ms
+[2026-10-30 11:52:51] NVIDIA_SUGGESTION_FAILED | apiId=1
+[2026-10-30 11:53:09] NVIDIA_SUGGESTION_SUCCESS | apiId=1 elapsed=36098ms
+[2026-10-30 11:53:09] NVIDIA_SUGGESTION_FAILED | apiId=1
+- [2026-10-30 12:04:21] AI TEST AUTHENTICATION FIX: Fixed authentication mismatch in AI test suggestion workflow. Positive test suggestions now inherit the registered API's authentication configuration (authType, username, password). Intentional negative-authentication test cases (missing credentials, invalid credentials, unsupported auth) are preserved and represented explicitly without being overwritten. Added helper methods isApiRequiringAuth() and detectAuthScenario() to classify test scenarios. Updated validateSuggestionResponse() to handle authenticated APIs, public APIs, and negative auth tests correctly. Preserves existing test validation including shouldRejectNullAuthConfiguration. Ensures NVIDIA-generated suggestions work seamlessly with authenticated endpoints without exposing credentials to the AI provider.
+[2026-10-30 12:08:29] NVIDIA_SUGGESTION_START | apiId=1 model=openai/gpt-oss-20b
+[2026-10-30 12:09:28] NVIDIA_SUGGESTION_SUCCESS | apiId=1 elapsed=58585ms
+[2026-10-30 12:11:09] NVIDIA_ANALYSIS_START | executionId=1 model=openai/gpt-oss-20b
+[2026-10-30 12:12:39] NVIDIA_ANALYSIS_ERROR | executionId=1
+[2026-10-30 12:13:26] NVIDIA_ANALYSIS_START | executionId=2 model=openai/gpt-oss-20b
+[2026-10-30 12:14:56] NVIDIA_ANALYSIS_ERROR | executionId=2
